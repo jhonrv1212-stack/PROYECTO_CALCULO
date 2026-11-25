@@ -1,6 +1,6 @@
-
+#ifdef _WIN32
 #include <windows.h>
-
+#endif
 #include <cmath>
 #include <cstdlib>
 #include <fstream>
@@ -9,9 +9,23 @@
 using namespace std;
 
 const double PI = 3.141592653589793;
-void limpiarPantalla() { system("cls"); }
+// FUNCION PARA LIMPIAR PANTALLA
+void limpiarPantalla() {
+#ifdef _WIN32
+    system("cls");
+#else
+    cout << "\033[2J\033[H" << flush;
+#endif
+}
 
-// FUNCION PARA INGRESAR LOS DATOS DEL SISTEMA
+// FUNCION PARA PAUSAR PANTALLA
+void pausar() {
+    cout << "\nPresione Enter para continuar...";
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    cin.get();
+}
+
+// DATOS DEL SISTEMA
 void ingresarDatos(double& area, double& drenaje, double& duracion, double& tiempo,
                    int& intervalos) {
     limpiarPantalla();
@@ -30,7 +44,7 @@ void ingresarDatos(double& area, double& drenaje, double& duracion, double& tiem
     cin >> intervalos;
 }
 
-// FUNCION PARA SELECCIONAR EL TIPO DE LLUVIA
+// TIPO DE LLUVIA
 int seleccionarLluvia() {
     int tipo;
 
@@ -48,7 +62,7 @@ int seleccionarLluvia() {
 
         if (tipo < 1 || tipo > 3) {
             cout << "Opcion no valida.\n";
-            system("pause");
+            pausar();
         }
 
     } while (tipo < 1 || tipo > 3);
@@ -63,7 +77,7 @@ struct Resultados {
     double salida;
 };
 
-// TIPO DE LLUVIA - ALTURA DEL RECTANGULO - INTENSIDAD DE LLUVIA(mm/h)
+// TIPO DE LLUVIA - INTENSIDAD DE LLUVIA(mm/h)
 double calcularIntensidad(int tipo, double t, double T) {
     switch (tipo) {
         case 1:
@@ -92,21 +106,34 @@ Resultados calcularAcumulacion(int tipo, double area, double drenaje, double t, 
     double salida = 0;
 
     for (int i = 0; i < intervalos; i++) {
-        double punto_medio = (i + 0.5) * dt;  // PUNTO MEDIO DEL INTERVALO(x̄)
-        double intensidad = calcularIntensidad(
-            tipo, punto_medio, T);  // INTENSIDAD DE LLUVIA EN EL PUNTO MEDIO(ALTURA)
+        // EXTREMOS DEL SUBINTERVALO DE TIEMPO (ABSCISAS)
+        double t1 = i * dt;
+        double t2 = (i + 1) * dt;
 
-        double caudal =
-            calcularCaudal(area, intensidad);  // CONVERTIMOS INTENSIDAD A CAUDAL DE ENTRADA (m³/h)
+        // INTENSIDADES DE LLUVIA EN AMBOS EXTREMOS (mm/h)
+        double intensidad1 = calcularIntensidad(tipo, t1, T);
+        double intensidad2 = calcularIntensidad(tipo, t2, T);
 
-        double aguaEntrante = caudal * dt;
+        // CAUDALES DE ENTRADA (BASES DEL TRAPECIO, m³/h)
+        double caudal1 = calcularCaudal(area, intensidad1);
+        double caudal2 = calcularCaudal(area, intensidad2);
+
+        // VOLUMEN DE ENTRADA: AREA DEL TRAPECIO (m³)
+        // dt representa la altura del trapecio
+        double aguaEntrante = (caudal1 + caudal2) * dt / 2.0;
+
+        // VOLUMEN DE SALIDA: CAPACIDAD DE DRENAJE POR INTERVALO (m³)
         double aguaSaliente = drenaje * dt;
 
+        // LIMITAMOS EL DRENAJE AL VOLUMEN DE AGUA DISPONIBLE
         if (aguaSaliente > acumulado + aguaEntrante) {
-            aguaSaliente = acumulado + aguaEntrante;  // EVITAMOS QUE EL VOLUMEN SEA NEGATIVO
+            aguaSaliente = acumulado + aguaEntrante;
         }
 
+        // BALANCE DE VOLUMENES DEL SUBINTERVALO
         acumulado += aguaEntrante - aguaSaliente;
+
+        // SUMATORIA DE LOS VOLUMENES DE ENTRADA Y SALIDA
         entrada += aguaEntrante;
         salida += aguaSaliente;
     }
@@ -137,7 +164,7 @@ void exportarDatos(int tipo, double area, double drenaje, double tiempo, double 
     archivo.close();
 }
 
-// FUNCION PARA MOSTRAR EL MENU PRINCIPAL
+// MENU PRINCIPAL
 int mostrarMenu() {
     int opcion;
 
@@ -158,7 +185,7 @@ int mostrarMenu() {
     return opcion;
 }
 
-// FUNCION PARA MODIFICAR LOS DATOS DEL SISTEMA
+// MODIFICAR LOS DATOS DEL SISTEMA
 void modificarDatos(double& area, double& drenaje, double& duracion, double& tiempo,
                     int& intervalos) {
     int opcion;
@@ -211,7 +238,7 @@ void modificarDatos(double& area, double& drenaje, double& duracion, double& tie
 
             default:
                 cout << "Opcion no valida.\n";
-                system("pause");
+                pausar();
         }
 
     } while (opcion != 6);
@@ -219,7 +246,9 @@ void modificarDatos(double& area, double& drenaje, double& duracion, double& tie
 
 // FUNCION PRINCIPAL
 int main() {
+   #ifdef _WIN32
     SetConsoleOutputCP(CP_UTF8);
+   #endif
     int opcion, subopcion, tipo, intervalos;
     double caudal;
     double area, drenaje, tiempo, duración;
@@ -262,8 +291,13 @@ int main() {
                 break;
             case 3:
                 exportarDatos(tipo, area, drenaje, tiempo, duración, intervalos);
-                cout << " Generando gráfica de resultados..." << endl;
-                system("python grafica.py");
+                  #ifdef _WIN32
+                    cout << " Generando gráfica de resultados..." << endl;
+                    system("python grafica.py");
+                  #else
+                    cout << "Datos exportados a datos.csv." << endl;
+                    cout << "La gráfica requiere Python en un entorno local." << endl;
+                  #endif
                 break;
             case 4:
 
@@ -291,7 +325,7 @@ int main() {
                             break;
                         default:
                             cout << "Opcion no valida.\n";
-                            system("pause");
+                           pausar();
                     }
 
                 } while (subopcion != 3);
@@ -307,7 +341,7 @@ int main() {
                 cout << "Opción no válida.\n" << endl;
         }
         if (opcion != 4 && opcion != 5) {
-            system("pause");
+           pausar();
         }
     } while (opcion != 5);
 
